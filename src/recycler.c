@@ -31,15 +31,6 @@ void recycler_create(struct recycler *ret, size_t block_size, size_t total_size,
     ret->free = ret->chunk;
 }
 
-void recycler_destroy(struct recycler *r)
-{
-    if (r != NULL)
-    {
-        free(r->chunk);
-        free(r);
-    }
-}
-
 void *recycler_allocate(struct recycler *r)
 {
     if (r == NULL || r->free == NULL)

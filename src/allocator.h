@@ -5,9 +5,7 @@
 
 struct blk_meta
 {
-    struct blk_meta *right;
-    struct blk_meta *left;
-    size_t key_address;
+    struct blk_meta *next;
     size_t size;
 };
 
@@ -17,6 +15,7 @@ struct blk_allocator
 };
 
 void blka_delete(struct blk_allocator *blka);
+
 struct blk_meta *blka_alloc(struct blk_allocator *blka, size_t size);
 void blka_free(struct blk_meta *blk);
 void blka_remove(struct blk_allocator *blka, struct blk_meta *blk);
