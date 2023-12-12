@@ -1,65 +1,75 @@
-#include "allocator.h"
-
-#include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "alignment.h"
+#include "tools.h"
 #include "recycler.h"
+#include "allocator.h"
 
-static size_t beware_overflow(size_t a, size_t b)
+static size_t check_overflow(size_t a, size_t b)
 {
-    size_t offset;
-    if (__builtin_uaddl_overflow(a, b, &offset))
-        return 0;
-    return offset;
+    // Check for overflow in the addition
+    size_t sum;
+    return __builtin_uaddl_overflow(a, b, &sum) ? 0 : sum;
 }
 
-struct blk_meta *blka_alloc(struct blk_allocator *blka, size_t size)
+void blka_free(struct blk_meta *block)
 {
-    long page_size = sysconf(_SC_PAGESIZE);
-    if (page_size == -1)
-        return NULL;
-    size_t len = beware_overflow(
-        size, align(sizeof(struct blk_meta) + sizeof(struct recycler)));
-    if (len == 0)
-        return NULL;
-    len /= page_size;
-    if (len * page_size
-        < size + align(sizeof(struct blk_meta) + sizeof(struct recycler)))
-        len++;
-    struct blk_meta *ret = mmap(NULL, len * page_size, PROT_READ | PROT_WRITE,
-                                MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (ret == MAP_FAILED)
-        return NULL;
-    ret->next = blka->meta;
-    ret->size = (len * page_size) - sizeof(struct blk_meta);
-    blka->meta = ret;
-    return ret;
+    if (block == NULL)
+        return;
+    // Unmap the block
+    munmap(block, (block->size + sizeof(struct blk_meta)));
 }
 
-void blka_free(struct blk_meta *blk)
+struct blk_meta *blka_alloc(struct blk_allocator *allocator, size_t size)
 {
-    munmap(blk, (blk->size + sizeof(struct blk_meta)));
-}
-
-void blka_remove(struct blk_allocator *blka, struct blk_meta *blk)
-{
-    if (blka->meta == blk)
+    static long system_page_size = 0;
+    if (system_page_size == 0)
     {
-        struct blk_meta *tmp = blka->meta;
-        blka->meta = blka->meta->next;
-        blka_free(tmp);
+        system_page_size = PAGE_SIZE;
+        if (system_page_size == -1)
+            // Failed to get system page size
+            return NULL;
     }
-    else
+
+    size_t aligned_total_size = check_overflow(size, size_align(sizeof(struct blk_meta) + sizeof(struct recycler)));
+    // Check for overflow in the size calculation
+    if (aligned_total_size == 0)
+        return NULL;
+
+    // Align the total size to the system page size
+    size_t len_aligned_to_page = (aligned_total_size + (system_page_size - 1)) & ~(system_page_size - 1);
+
+    // Allocate a new block of memory
+    struct blk_meta *new_block = mmap(NULL, len_aligned_to_page, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (new_block == MAP_FAILED)
+        return NULL;
+
+    // Update the block metadata and add it to the allocator's linked list
+    new_block->next = allocator->meta;
+    new_block->size = len_aligned_to_page - sizeof(struct blk_meta);
+    allocator->meta = new_block;
+
+    return new_block;
+}
+
+void blka_remove(struct blk_allocator *allocator, struct blk_meta *block)
+{
+    // Check for null pointers
+    if (allocator == NULL || block == NULL)
+        return;
+
+    // Find the block in the allocator's linked list
+    struct blk_meta **current_block = &allocator->meta;
+    while (*current_block && (*current_block != block))
     {
-        struct blk_meta *c = blka->meta;
-        while (c->next != blk)
-        {
-            c = c->next;
-        }
-        struct blk_meta *tmp = c->next;
-        c->next = c->next->next;
-        blka_free(tmp);
+        current_block = &(*current_block)->next;
+    }
+
+    // Remove the block from the allocator's linked list
+    if (*current_block)
+    {
+        struct blk_meta *block_to_free = *current_block;
+        *current_block = (*current_block)->next;
+        blka_free(block_to_free);
     }
 }

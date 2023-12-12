@@ -1,10 +1,10 @@
 CC = gcc
 CPPFLAGS = -D_DEFAULT_SOURCE
-CFLAGS = -Wall -Wextra -Werror -std=c99 -Wvla
+CFLAGS = -Wall -Wextra -Werror -std=c99 -Wvla -std=c99
 VPATH = src
 
 TARGET_LIB = libmalloc.so
-OBJS = my_malloc.o alignment.o page_begin.o allocator.o recycler.o
+OBJS = my_malloc.o tools.o allocator.o recycler.o
 
 TEST_OBJS = tests/malloc.o
 TEST_BIN = test

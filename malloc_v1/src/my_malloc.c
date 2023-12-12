@@ -1,156 +1,162 @@
-#include "my_malloc.h"
-
-#include <pthread.h>
-#include <stdbool.h>
-#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "alignment.h"
 #include "allocator.h"
-#include "page_begin.h"
 #include "recycler.h"
-#include "utils.h"
+#include "tools.h"
+#include "my_malloc.h"
 
-static struct blk_allocator mem = {
+
+static struct blk_allocator blk_alloc = {
     .meta = NULL,
 };
 
-bool is_nothing_allocated(void)
-{
-    return mem.meta == NULL;
-}
+static struct blk_meta *new_page(size_t block_size) {
+    // Allocate a new block of memory
+    struct blk_meta *block_meta = blka_alloc(&blk_alloc, block_size);
+    if (block_meta == NULL) {
+        return NULL; // Allocation failed
+    }
 
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+    // Setup the recycler structure immediately after the block meta
+    struct recycler *recycler_ptr = (struct recycler *)(block_meta + 1);
 
-static struct blk_meta *new_page(size_t block_size)
-{
-    struct blk_meta *ret = blka_alloc(&mem, block_size);
-    if (ret == NULL)
-        return NULL;
-    struct recycler *recyler_ptr = ptr_to_ptr(ret + 1);
-
-    size_t offset = 0;
-    if (block_size < (size_t)sysconf(_SC_PAGESIZE))
-    {
-        while (offset
-               < align(sizeof(struct blk_meta) + sizeof(struct recycler)))
+    // Calculate the offset to ensure proper alignment
+    size_t offset;
+    size_t alignment_requirement = size_align(sizeof(struct blk_meta) + sizeof(struct recycler));
+    if (block_size < (size_t)PAGE_SIZE) {
+        // For small block sizes, increment offset until it meets the alignment requirement
+        offset = 0;
+        while (offset < alignment_requirement) {
             offset += block_size;
-    }
-    else
-    {
-        offset += align(sizeof(struct blk_meta) + sizeof(struct recycler));
+        }
+    } else {
+        // For larger block sizes, size_align directly
+        offset = alignment_requirement;
     }
 
-    size_t start_point_s = ptr_to_size_t(ret) + offset;
+    // Calculate the starting point for the recycler's memory blocks
+    void *start_point = (void *)((char *)block_meta + offset);
 
-    void *start_point = size_t_to_ptr(start_point_s);
-    recycler_create(recyler_ptr, block_size, ret->size - offset, start_point);
-    if (recyler_ptr == NULL)
-    {
-        return NULL;
+    // Initialize the recycler at the calculated starting point
+    recycler_create(&recycler_ptr, block_size, block_meta->size - offset, start_point);
+
+    // Check if the recycler was successfully created
+    if (recycler_ptr == NULL) {
+        return NULL; // Failed to create recycler
     }
-    return ret;
+
+    return block_meta;
 }
 
-static void *malloc_internal(size_t size, bool *is_new_page)
-{
-    *is_new_page = false;
-
-    if (size == 0)
+void *my_malloc(size_t size) {
+    // Return NULL for zero size allocation request
+    if (size == 0) {
         return NULL;
-
-    size = align(size);
-
-    pthread_mutex_lock(&mutex);
-
-    struct blk_meta *current = mem.meta;
-    while (current != NULL)
-    {
-        struct recycler *tmp = ptr_to_ptr(current + 1);
-        if (tmp->block_size == size && tmp->free != NULL)
-            break;
-        current = current->next;
     }
-    if (current == NULL)
-    {
-        current = new_page(size);
-        if (current == NULL)
-        {
-            pthread_mutex_unlock(&mutex);
-            return NULL;
+
+    // Align the requested size
+    size = size_align(size);
+
+    struct blk_meta *current_block = blk_alloc.meta;
+    struct recycler *recycler_ptr = NULL;
+
+    // Search for a suitable block
+    while (current_block != NULL) {
+        recycler_ptr = (struct recycler *)(current_block + 1);
+        if (recycler_ptr->block_size == size && recycler_ptr->free != NULL) {
+            break; // Suitable block found
         }
-        *is_new_page = true;
+        current_block = current_block->next;
     }
-    struct recycler *tmp = ptr_to_ptr(current + 1);
-    void *ret = recycler_allocate(tmp);
+
+    // If no suitable block found, create a new page
+    if (current_block == NULL) {
+        current_block = new_page(size);
+        if (current_block == NULL) {
+            return NULL; // Page creation failed
+        }
+        recycler_ptr = (struct recycler *)(current_block + 1);
+    }
+
+    // Allocate block from recycler
+    void *allocated_block = recycler_allocate(recycler_ptr);
     
-    pthread_mutex_unlock(&mutex);
-    return ret;
+    return allocated_block;
 }
 
-void *my_malloc(size_t size)
-{
-    bool is_new_page; // dummy variable
-    return malloc_internal(size, &is_new_page);
-}
+void my_free(void *ptr) {
+    // Only proceed if ptr is not NULL
+    if (ptr != NULL) {
 
-void my_free(void *ptr)
-{
-    if (ptr != NULL)
-    {
-        pthread_mutex_lock(&mutex);
-        struct blk_meta *begin = page_begin(ptr, sysconf(_SC_PAGESIZE));
-        struct recycler *recycl = ptr_to_ptr(begin + 1);
-        recycler_free(recycl, ptr);
-        if (recycl->allocated == 0)
-        {
-            blka_remove(&mem, begin);
+        // Find the beginning of the page containing ptr
+        struct blk_meta *page_start = page_begin(ptr, PAGE_SIZE);
+        if (page_start == NULL) {
+            return; // Handle error if page_begin fails
         }
-        pthread_mutex_unlock(&mutex);
+
+        // Get the recycler associated with this memory block
+        struct recycler *recycler_ptr = (struct recycler *)(page_start + 1);
+
+        // Free the block using the recycler
+        recycler_free(recycler_ptr, ptr);
+
+        // If all blocks in the recycler are free, remove the page
+        if (recycler_ptr->allocated == 0) {
+            blka_remove(&blk_alloc, page_start);
+        }
     }
 }
 
-void *my_realloc(void *ptr, size_t size)
-{
-    if (size == 0)
-    {
+void *my_realloc(void *ptr, size_t size) {
+    // Free the block if the new size is zero
+    if (size == 0) {
         my_free(ptr);
         return NULL;
     }
-    if (ptr == NULL)
+
+    // Allocate a new block if ptr is NULL
+    if (ptr == NULL) {
         return my_malloc(size);
-    struct blk_meta *head = page_begin(ptr, sysconf(_SC_PAGESIZE));
-    struct recycler *rec = ptr_to_ptr(head + 1);
-    if (size <= rec->block_size)
+    }
+
+    // Find the blk_meta and recycler for the current memory block
+    struct blk_meta *block_meta = page_begin(ptr, PAGE_SIZE);
+    struct recycler *recycler_ptr = (struct recycler *)(block_meta + 1);
+
+    // Return the same block if the new size is smaller or equal to the current block size
+    if (size <= recycler_ptr->block_size) {
         return ptr;
-    void *ret = my_malloc(size);
-    if (ret == NULL)
+    }
+
+    // Allocate a new block and copy the old data
+    void *new_block = my_malloc(size);
+    if (new_block == NULL) {
         return NULL;
-    memmove(ret, ptr, rec->block_size);
+    }
+    memmove(new_block, ptr, recycler_ptr->block_size);
+
+    // Free the old block
     my_free(ptr);
-    return ret;
+
+    return new_block;
 }
 
-void *my_calloc(size_t nmemb, size_t size)
-{
-    size_t checked_size;
-    if (__builtin_umull_overflow(nmemb, size, &checked_size))
-        return NULL;
-
-    bool is_new_page;
-    void *ret = malloc_internal(checked_size, &is_new_page);
-    if (ret == NULL)
-        return NULL;
-
-    if (!is_new_page)
-    {
-        memset(ret, 0, checked_size);
-    }
-    else
-    {
-        memset(ret, 0, sizeof(struct free_list));
+void *my_calloc(size_t nmemb, size_t size) {
+    // Calculate the total size and check for overflow
+    size_t total_size;
+    if (__builtin_umull_overflow(nmemb, size, &total_size)) {
+        return NULL; // Return NULL if overflow occurs
     }
 
-    return ret;
+    // Allocate memory using my_malloc
+    void *new_block = my_malloc(total_size);
+    if (new_block == NULL) {
+        return NULL; // Allocation failed
+    }
+
+    // Initialize the allocated memory to zero
+    memset(new_block, 0, total_size);
+
+    return new_block;
 }
