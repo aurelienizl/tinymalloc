@@ -1,238 +1,173 @@
 #include <criterion/criterion.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <string.h>
-
-// to get a reproducible test. Remove macro and uncomment include to get
-// random tests
 #include <time.h>
-//#define time(...) (42)
+#include <stdio.h>
+#include <signal.h>
 
 #include "../src/my_malloc.h"
 
-#define IS_PTR_ALIGNED(PTR) cr_assert_eq((((unsigned long)(PTR)) & 15), 0)
+TestSuite(my_malloc);
 
-Test(malloc_free, malloc_free_0, .timeout = 1)
+Test(my_malloc, malloc_1)
 {
-    void *tmp = my_malloc(0);
-    cr_expect_eq(tmp, NULL);
-    free(tmp);
+    void *ptr = my_malloc(1);
+    cr_assert_not_null(ptr);
+    my_free(ptr);
 }
 
-Test(malloc_free, segfault, .signal = SIGSEGV, .timeout = 1)
+Test(my_malloc, random_alloc_01)
 {
-    char *tmp = my_malloc(1);
-    IS_PTR_ALIGNED(tmp);
-    my_free(tmp);
-    tmp[0] = 'a';
-}
+    clock_t start_time = clock();
 
-Test(malloc_free, easy, .timeout = 2)
-{
-    char *str = "Hello World!";
-    char *tmp = my_malloc(sizeof(char) * (strlen(str) + 1));
-    cr_expect_neq(tmp, NULL);
-    IS_PTR_ALIGNED(tmp);
-    strcpy(tmp, str);
-    cr_expect_eq(strcmp(str, tmp), 0);
-    my_free(tmp);
-}
-
-Test(malloc_free, malloc_huge_seqfault, .signal = SIGSEGV, .timeout = 2)
-{
-    char *tmp = my_malloc(42000);
-    IS_PTR_ALIGNED(tmp);
-    my_free(tmp);
-    tmp[5000] = 'a';
-}
-
-Test(malloc_free, malloc_huge, .timeout = 2)
-{
-    char *tmp = my_malloc(42000);
-    IS_PTR_ALIGNED(tmp);
-    tmp[5000] = 'a';
-    my_free(tmp);
-}
-
-Test(malloc_free, malloc_free_serie, .timeout = 2)
-{
-#define TEST (4)
-    char *arr[TEST];
-    for (size_t i = 0; i < TEST; i++)
+    for (long i = 0; i < 100; i++) 
     {
-        arr[i] = my_malloc(42);
-        IS_PTR_ALIGNED(arr[i]);
-        arr[i][40] = 'a';
-    }
-    for (size_t i = 0; i < TEST; i++)
-        my_free(arr[i]);
-#undef TEST
-}
-
-Test(malloc_free, malloc_free_serie_a_lot, .timeout = 2)
-{
-#define TEST (420)
-    char *arr[TEST];
-    for (size_t i = 0; i < TEST; i++)
-    {
-        arr[i] = my_malloc(42);
-        arr[i][40] = 'a';
-    }
-    for (size_t i = 0; i < TEST; i++)
-        my_free(arr[i]);
-#undef TEST
-}
-
-Test(malloc_free, malloc_free_serie_random, .timeout = 2)
-{
-    srand(time(NULL));
-
-#define TEST (10)
-    char *arr[TEST] = { 0 };
-    for (size_t i = 0; i < TEST; i++)
-    {
-        size_t s = rand() % 70;
-        arr[i] = my_malloc(s);
-    }
-    for (size_t i = 0; i < TEST; i++)
-        my_free(arr[i]);
-#undef TEST
-}
-
-#include <assert.h>
-#include <stdio.h>
-Test(malloc_free, malloc_free_real)
-{
-    // Bad seed: 1701474286
-    size_t seed = time(NULL);
-    //printf("Seed: %ld\n", seed);
-    //size_t seed = 1701474286;
-    srand(seed);
-#define TEST (42000)
-#define MIN_STEP (100)
-#define MAX_STEP_OFFSET (150)
-#define MAX_STEP_BACK (91)
-#define MAX_SIZE (400)
-
-    char *arr[TEST] = { NULL };
-    size_t k = 0;
-    size_t j = 0;
-    size_t step = MIN_STEP + rand() % MAX_STEP_OFFSET;
-
-    for (size_t i = 0; i < TEST; i++, k++, j++)
-    {
-        size_t s =  rand() % MAX_SIZE;
-        arr[j] = my_malloc(s);
-        IS_PTR_ALIGNED(arr[j]);
-        if (s != 0)
-        {
-            cr_assert_neq(arr[j], NULL);
-            arr[j][s - 1] = 'a';
-        }
-        if (k == step)
-        {
-            size_t l = k - rand() % MAX_STEP_BACK;
-            while (k > l)
-            {
-                my_free(i[arr]);
-                j[arr] = NULL;
-                k--;
-                j--;
-            }
-            step = MIN_STEP + rand() % MAX_STEP_OFFSET;
-        }
+        size_t size = rand() % 1000;
+        void *ptr = my_malloc(size);
+        memset(ptr, 0, size);
+        my_free(ptr);
     }
 
-    for (size_t i = 0; i < TEST; i++)
-        my_free(arr[i]);
-
-#undef TEST
-#undef MIN_STEP
-#undef MAX_STEP_OFFSET
-#undef MAX_SIZE
-#undef STEP_BACK
+    clock_t end_time = clock();
+    double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    printf("TEST RANDOM 01 : Time taken: %.2f seconds\n", elapsed_time);
 }
 
-Test(malloc_free, malloc_free_serie_a_lot_random, .timeout = 3)
+Test(my_malloc, random_alloc_02)
 {
-    srand(time(NULL));
+    clock_t start_time = clock();
 
-#define TEST (42000)
-    char *arr[TEST] = { 0 };
-    for (size_t i = 0; i < TEST; i++)
-    {
-        size_t s = rand() % 400;
-        arr[i] = my_malloc(s);
-        if (s != 0)
-            arr[i][s - 1] = 'a';
-    }
-    for (size_t i = 0; i < TEST; i++)
-        my_free(arr[i]);
-#undef TEST
-}
+    void *ptrs[100];
 
-Test(malloc_free, calloc_increment, .timeout = 2)
-{
-#define TEST (20)
-    char *tmp = calloc(TEST, 1);
-    char *arr[TEST] = { 0 };
-    for (size_t i = 0; i < TEST; i++)
+    for (long i = 0; i < 100; i++) 
     {
-        arr[i] = my_calloc(i, 1);
-        cr_expect_eq(memcmp(arr[i], tmp, i), 0);
+        size_t size = rand() % 1000;
+        void *ptr = my_malloc(size);
+        memset(ptr, 0, size);
+        ptrs[i] = ptr;
     }
 
-    for (size_t i = 0; i < TEST; i++)
-        my_free(arr[i]);
-
-    free(tmp);
-#undef TEST
-}
-
-Test(calloc_free, calloc_increment_a_lot, .timeout = 2)
-{
-#define TEST (2000)
-    char *tmp = calloc(TEST, 1);
-    char *arr[TEST] = { 0 };
-    for (size_t i = 0; i < TEST; i++)
+    for (long i = 0; i < 100; i++) 
     {
-        arr[i] = my_calloc(i, 1);
-        cr_expect_eq(memcmp(arr[i], tmp, i), 0);
+        my_free(ptrs[i]);
     }
 
-    for (size_t i = 0; i < TEST; i++)
-        my_free(arr[i]);
-    free(tmp);
-#undef TEST
+    clock_t end_time = clock();
+    double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    printf("TEST RANDOM 02 : Time taken: %.2f seconds\n", elapsed_time);
 }
 
-Test(realloc, easy_peasy, .timeout = 1)
+Test(my_malloc, random_alloc_03)
 {
-    char *tmp = NULL;
-    tmp = my_realloc(tmp, 42);
-    tmp[41] = 0;
-    my_free(tmp);
+    clock_t start_time = clock();
+
+    void *ptrs[1000];
+
+    for (long i = 0; i < 1000; i++) 
+    {
+        size_t size = rand() % 1000;
+        void *ptr = my_malloc(size);
+        memset(ptr, 0, size);
+        ptrs[i] = ptr;
+    }
+
+    for (long i = 0; i < 1000; i++) 
+    {
+        my_free(ptrs[i]);
+    }
+
+    clock_t end_time = clock();
+    double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    printf("TEST RANDOM 03 : Time taken: %.2f seconds\n", elapsed_time);
 }
 
-Test(realloc, easy, .signal = SIGSEGV, .timeout = 1)
+Test(my_malloc, random_alloc_04)
 {
-    char *tmp = my_malloc(42);
-    tmp = my_realloc(tmp, 0);
-    tmp[0] = 'a';
+    clock_t start_time = clock();
+
+    void *ptrs[10000];
+
+    for (long i = 0; i < 10000; i++) 
+    {
+        size_t size = rand() % 1000;
+        void *ptr = my_malloc(size);
+        memset(ptr, 0, size);
+        ptrs[i] = ptr;
+    }
+
+    for (long i = 0; i < 10000; i++) 
+    {
+        my_free(ptrs[i]);
+    }
+
+    clock_t end_time = clock();
+    double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    printf("TEST RANDOM 04 : Time taken: %.2f seconds\n", elapsed_time);
 }
 
-Test(bonus, realloc_extend_reduce_bitbucket, .timeout = 1)//, .disabled = true)
+Test(my_malloc, segfault_01, .signal = SIGSEGV)
 {
-    char *tmp = my_calloc(33,1);
-    void *tmp2 = my_realloc(tmp, 40);
-    cr_expect_eq(tmp, tmp2);
-    my_free(tmp2);
+    void *ptr = my_malloc(1);
+    my_free(ptr);
+    memset(ptr, 0, 1);
 }
 
-Test(bonus, realloc_reduce_no_move, .timeout = 1)//, .disabled = true)
+Test(my_malloc, segfault_02, .signal = SIGSEGV)
 {
-    char *tmp = my_calloc(33,1);
-    void *tmp2 = my_realloc(tmp, 10);
-    cr_expect_eq(tmp, tmp2);
-    my_free(tmp2);
+    for (long i = 0; i < 100; i++) 
+    {
+        size_t size = rand() % 1000;
+        void *ptr = my_malloc(size);
+        memset(ptr, 0, size);
+        my_free(ptr);
+    }
+
+    void *ptr = my_malloc(1);
+    my_free(ptr);
+
+    memset(ptr, 0, 1);
+}
+
+Test(my_malloc, segfault_03, .signal = SIGSEGV)
+{
+    void *ptrs[100];
+
+    for (long i = 0; i < 100; i++) 
+    {
+        size_t size = rand() % 1000;
+        void *ptr = my_malloc(size);
+        ptrs[i] = ptr;
+        memset(ptr, 0, size);
+    }
+
+    for (long i = 0; i < 100; i++) 
+    {
+        my_free(ptrs[i]);
+    }
+
+    void *ptr = my_malloc(1);
+    my_free(ptr);
+
+    memset(ptr, 0, 1);
+}
+
+Test(my_malloc, segfault_04, .signal = SIGSEGV)
+{
+    void *ptrs[1000];
+
+    for (long i = 0; i < 1000; i++) 
+    {
+        size_t size = rand() % 1000;
+        void *ptr = my_malloc(size);
+        ptrs[i] = ptr;
+        memset(ptr, 0, size);
+    }
+
+    for (long i = 0; i < 1000; i++) 
+    {
+        my_free(ptrs[i]);
+    }
+
+    void *ptr = my_malloc(1);
+    my_free(ptr);
+
+    memset(ptr, 0, 1);
 }

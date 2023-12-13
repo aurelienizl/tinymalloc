@@ -2,8 +2,8 @@
 #include <unistd.h>
 
 #include "tools.h"
-#include "recycler.h"
-#include "allocator.h"
+#include "my_recycler.h"
+#include "blk_allocator.h"
 
 static size_t check_overflow(size_t a, size_t b)
 {

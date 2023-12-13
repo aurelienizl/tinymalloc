@@ -1,8 +1,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "allocator.h"
-#include "recycler.h"
+#include "blk_allocator.h"
+#include "my_recycler.h"
 #include "tools.h"
 #include "my_malloc.h"
 

@@ -1,6 +1,6 @@
 #include "tools.h"
 
-size_t size_align_(size_t size)
+size_t size_align(size_t size)
 {
     // Align to 16 bytes
     const size_t align_base = sizeof(long double);
@@ -14,7 +14,7 @@ size_t size_align_(size_t size)
     return (size + mask) & ~mask;
 }
 
-size_t size_align(size_t size)
+size_t size_align_pow2(size_t size)
 {
     if (size < 16)
     {
