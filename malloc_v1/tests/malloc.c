@@ -83,17 +83,17 @@ Test(my_malloc, random_alloc_04)
 {
     clock_t start_time = clock();
 
-    void *ptrs[10000];
+    void *ptrs[1000000];
 
-    for (long i = 0; i < 10000; i++) 
+    for (size_t i = 0; i < 1000000; i++) 
     {
-        size_t size = rand() % 1000;
+        size_t size = rand() % 10000;
         void *ptr = my_malloc(size);
         memset(ptr, 0, size);
         ptrs[i] = ptr;
     }
 
-    for (long i = 0; i < 10000; i++) 
+    for (size_t i = 0; i < 1000000; i++) 
     {
         my_free(ptrs[i]);
     }
