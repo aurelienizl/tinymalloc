@@ -262,6 +262,38 @@ Test(my_malloc, mixed_calloc_realloc_free)
     }
 }
 
+Test(my_malloc, mixed_random_operations)
+{
+    void *ptr = NULL;
+    const int iterations = 100000;
+    for (int i = 0; i < iterations; i++) {
+        switch (rand() % 4) {
+            case 0: // malloc
+                ptr = my_malloc(rand() % 1024 + 1);
+                cr_assert_not_null(ptr, "malloc failed on iteration %d", i);
+                break;
+            case 1: // realloc
+                ptr = my_realloc(ptr, rand() % 2048 + 1);
+                cr_assert_not_null(ptr, "realloc failed on iteration %d", i);
+                break;
+            case 2: // free
+                my_free(ptr);
+                ptr = NULL;
+                break;
+            case 3: // calloc
+                size_t size = rand() % 512 + 1;
+                ptr = my_calloc(1, size);
+                cr_assert_not_null(ptr, "calloc failed on iteration %d", i);
+                for (size_t j = 0; j < size; j++) {
+                    cr_assert_eq(((char *)ptr)[j], 0, "calloc memory not zero-initialized on iteration %d", i);
+                }
+                break;
+        }
+    }
+    my_free(ptr); // Ensure we clean up
+}
+
+
 Test(my_malloc, mixed_all_functions)
 {
     void **pointers = calloc(1000, sizeof(void *));
