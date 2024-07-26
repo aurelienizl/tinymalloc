@@ -14,9 +14,7 @@ static size_t check_overflow(size_t a, size_t b)
 
 void blka_free(struct blk_meta *block)
 {
-    if (block == NULL)
-        return;
-    // Unmap the block
+    // If there are no mappings in the specified address range, then munmap() has no effect.
     munmap(block, (block->size + sizeof(struct blk_meta)));
 }
 
