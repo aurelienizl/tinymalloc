@@ -264,6 +264,9 @@ Test(my_malloc, mixed_calloc_realloc_free)
 
 Test(my_malloc, mixed_random_operations)
 {
+    // Start a timer
+    clock_t start_time = clock();
+
     void *ptr = NULL;
     const int iterations = 100000;
     for (int i = 0; i < iterations; i++) {
@@ -291,11 +294,23 @@ Test(my_malloc, mixed_random_operations)
         }
     }
     my_free(ptr); // Ensure we clean up
+
+    // End the timer
+    clock_t end_time = clock();
+
+    // Calculate the elapsed time
+    double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+
+    // Print the elapsed time
+    printf("BENCH_MIXED_1: %.2f seconds\n", elapsed_time);
 }
 
 
 Test(my_malloc, mixed_all_functions)
 {
+    // Start a timer
+    clock_t start_time = clock();
+
     void **pointers = calloc(1000, sizeof(void *));
     for (int i = 0; i < 100000; i++) {
         int idx = rand() % 1000;
@@ -319,4 +334,13 @@ Test(my_malloc, mixed_all_functions)
         my_free(pointers[i]);
     }
     free(pointers);
+
+    // End the timer
+    clock_t end_time = clock();
+
+    // Calculate the elapsed time
+    double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+
+    // Print the elapsed time
+    printf("BENCH_MIX_2: %.2f seconds\n", elapsed_time);
 }
