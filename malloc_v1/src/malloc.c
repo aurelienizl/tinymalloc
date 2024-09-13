@@ -1,6 +1,6 @@
-#include "my_malloc.h"
-
 #include <pthread.h>
+
+#include "my_malloc.h"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 

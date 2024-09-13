@@ -10,10 +10,11 @@
 struct recycler
 {
     size_t block_size; ///< Size of each memory block within the recycler.
-    size_t allocated;  ///< Number of blocks currently allocated.
-    size_t capacity;   ///< Total number of blocks that can be allocated.
-    void *chunk;       ///< Pointer to the start of the memory managed by the recycler.
-    void *free;        ///< Pointer to the list of free blocks.
+    size_t allocated; ///< Number of blocks currently allocated.
+    size_t capacity; ///< Total number of blocks that can be allocated.
+    void
+        *chunk; ///< Pointer to the start of the memory managed by the recycler.
+    void *free; ///< Pointer to the list of free blocks.
 };
 
 /**
@@ -32,8 +33,8 @@ struct free_list
  * @param total_size Total size of the memory to be managed by the recycler.
  * @param start_point Pointer to the start of the memory to be managed.
  */
-void recycler_create(struct recycler **ret, size_t block_size, size_t total_size,
-                     void *start_point);
+void recycler_create(struct recycler **ret, size_t block_size,
+                     size_t total_size, void *start_point);
 
 /**
  * @brief Allocates a block of memory from the recycler.

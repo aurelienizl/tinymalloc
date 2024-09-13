@@ -14,7 +14,7 @@ size_t size_align(size_t size)
     return (size + mask) & ~mask;
 }
 
-/* size_t size_align_pow2(size_t size)
+/*  size_t size_align_test(size_t size)
 {
     if (size < 16)
     {
@@ -33,8 +33,8 @@ size_t size_align(size_t size)
     }
 
     return mask;
-} */
-
+} 
+ */
 void *page_begin(void *ptr, size_t page_size)
 {
     char *tmp = (char *)ptr;
