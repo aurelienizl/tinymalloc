@@ -20,7 +20,7 @@ all: library
 library: $(TARGET_LIB)
 
 # Building the shared library
-$(TARGET_LIB): CFLAGS += -pedantic -fvisibility=hidden -fPIC
+$(TARGET_LIB): CFLAGS += -pedantic -fvisibility=hidden -fPIC -O2
 $(TARGET_LIB): LDFLAGS += -Wl,--no-undefined -shared
 $(TARGET_LIB): OBJS += malloc.o
 $(TARGET_LIB): $(OBJS)

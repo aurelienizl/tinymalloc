@@ -97,7 +97,7 @@ void *my_malloc(size_t size)
     while (current_block != NULL)
     {
         recycler_ptr = (struct recycler *)(current_block + 1);
-        if (recycler_ptr->block_size == size && recycler_ptr->free != NULL)
+        if (recycler_ptr->block_size >= size && recycler_ptr->free != NULL)
         {
             break; // Suitable block found
         }
@@ -217,4 +217,15 @@ void *my_calloc(size_t nmemb, size_t size)
     memset(new_block, 0, total_size);
 
     return new_block;
+}
+
+__attribute__((constructor)) void library_initialize()
+{
+    struct blk_meta *xxl = new_page(1024);
+    struct blk_meta *xl = new_page(256);
+    struct blk_meta *xs = new_page(64);
+
+    (void)xxl;
+    (void)xl;
+    (void)xs;
 }
