@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include "blk_allocator.h"
 #include "my_recycler.h"
@@ -199,12 +200,13 @@ void *my_realloc(void *ptr, size_t size)
 
 void *my_calloc(size_t nmemb, size_t size)
 {
-    // Calculate the total size and check for overflow
-    size_t total_size;
-    if (__builtin_umull_overflow(nmemb, size, &total_size))
-    {
-        return NULL; // Return NULL if overflow occurs
+    // Check for multiplication overflow manually
+    if (nmemb != 0 && size > SIZE_MAX / nmemb) {
+        return NULL;  // Overflow would occur
     }
+
+    // Calculate total size
+    size_t total_size = nmemb * size;
 
     // Allocate memory using my_malloc
     void *new_block = my_malloc(total_size);
@@ -221,11 +223,12 @@ void *my_calloc(size_t nmemb, size_t size)
 
 __attribute__((constructor)) void library_initialize()
 {
-    struct blk_meta *xxl = new_page(1024);
+    struct blk_meta *xxxl = new_page(1024);
     struct blk_meta *xl = new_page(256);
     struct blk_meta *xs = new_page(64);
 
-    (void)xxl;
+
+    (void)xxxl;
     (void)xl;
     (void)xs;
 }

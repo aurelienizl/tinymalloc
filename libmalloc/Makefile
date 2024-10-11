@@ -4,6 +4,17 @@ CFLAGS = -Wall -Wextra -Werror -std=c99 -Wvla
 LDFLAGS = 
 VPATH = src
 
+BITS ?= 64   # Default to 64-bit mode, set to 32 for 32-bit compilation
+
+# Define bit-specific flags
+ifeq ($(BITS),32)
+    CFLAGS := $(filter-out -m64,$(CFLAGS)) -m32
+    LDFLAGS := $(filter-out -m64,$(LDFLAGS)) -m32
+else
+    CFLAGS := $(filter-out -m32,$(CFLAGS)) -m64
+    LDFLAGS := $(filter-out -m32,$(LDFLAGS)) -m64
+endif
+
 TARGET_LIB = libmalloc.so
 OBJS = my_malloc.o tools.o blk_allocator.o my_recycler.o
 
@@ -20,7 +31,7 @@ all: library
 library: $(TARGET_LIB)
 
 # Building the shared library
-$(TARGET_LIB): CFLAGS += -pedantic -fvisibility=hidden -fPIC -O2
+$(TARGET_LIB): CFLAGS += -pedantic -fvisibility=hidden -fPIC -O2 
 $(TARGET_LIB): LDFLAGS += -Wl,--no-undefined -shared
 $(TARGET_LIB): OBJS += malloc.o
 $(TARGET_LIB): $(OBJS)

@@ -6,13 +6,23 @@
 #include "my_recycler.h"
 #include "tools.h"
 
+
 static size_t check_overflow(size_t a, size_t b)
 {
-    // Check for overflow in the addition
     size_t sum;
-    return __builtin_uaddl_overflow(a, b, &sum) ? 0 : sum;
-}
+    
+    #if __SIZEOF_SIZE_T__ == 8  // 64-bit size_t
+        if (__builtin_uaddl_overflow(a, b, &sum)) {
+            return 0;  // Overflow occurred
+        }
+    #else  // 32-bit size_t
+        if (__builtin_uadd_overflow(a, b, &sum)) {
+            return 0;  // Overflow occurred
+        }
+    #endif
 
+    return sum;  // No overflow
+}
 void blka_free(struct blk_meta *block)
 {
     // If there are no mappings in the specified address range, then munmap()
