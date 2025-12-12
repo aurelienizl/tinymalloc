@@ -1,7 +1,7 @@
 #include "tools.h"
 #include <unistd.h>
 
-size_t global_page_size;
+size_t global_page_size = 4096; 
 
 size_t size_align(size_t size)
 {
