@@ -35,7 +35,7 @@ struct blk_meta *blka_alloc(struct blk_allocator *allocator, size_t size)
     static long system_page_size = 0;
     if (system_page_size == 0)
     {
-        system_page_size = sysconf(_SC_PAGESIZE);
+        system_page_size = global_page_size;
         if (system_page_size == -1)
             return NULL; // Failed to get system page size
     }
