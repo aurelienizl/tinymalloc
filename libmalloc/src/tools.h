@@ -6,7 +6,8 @@
 /**
  * @brief Defines the system page size using sysconf.
  */
-#define PAGE_SIZE sysconf(_SC_PAGESIZE)
+extern size_t global_page_size;
+#define PAGE_SIZE global_page_size
 
 /**
  * @brief Defines the alignment size.

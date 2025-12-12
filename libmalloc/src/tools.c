@@ -1,4 +1,7 @@
 #include "tools.h"
+#include <unistd.h>
+
+size_t global_page_size;
 
 size_t size_align(size_t size)
 {
@@ -25,4 +28,8 @@ void *page_begin(void *ptr, size_t page_size)
     }
 
     return (void *)(tmp - ((size_t)tmp & mask));
+}
+
+__attribute__((constructor)) void init_tools() {
+    global_page_size = sysconf(_SC_PAGESIZE);
 }
