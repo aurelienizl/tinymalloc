@@ -269,7 +269,7 @@ Test(my_malloc, mixed_random_operations)
     clock_t start_time = clock();
 
     void *ptr = NULL;
-    const int iterations = 300000;
+    const int iterations = 3000000;
     for (int i = 0; i < iterations; i++) {
         switch (rand() % 4) {
             case 0: // malloc
