@@ -1,35 +1,54 @@
 #include "tools.h"
-#include <unistd.h>
 
-size_t global_page_size = 4096; 
+#include <unistd.h>
+#include <stdint.h>
+#include <stddef.h>
+
+size_t global_page_size; // cache; 0 means uninitialized
+
+static int is_power_of_two(size_t x)
+{
+    return x != 0 && (x & (x - 1)) == 0;
+}
+
+size_t tools_page_size(void)
+{
+    // Lock-free lazy init (no pthread dependency, avoids constructor ordering issues)
+    size_t ps = __atomic_load_n(&global_page_size, __ATOMIC_ACQUIRE);
+    if (ps != 0)
+        return ps;
+
+    long tmp = sysconf(_SC_PAGESIZE);
+    if (tmp <= 0)
+        return 0;
+
+    ps = (size_t)tmp;
+    if (!is_power_of_two(ps))
+        return 0;
+
+    __atomic_store_n(&global_page_size, ps, __ATOMIC_RELEASE);
+    return ps;
+}
 
 size_t size_align(size_t size)
 {
-    // Align to 16 bytes
-    const size_t align_base = sizeof(long double);
-    const size_t mask = align_base - 1;
+    // Align to ALIGNMENT (16 bytes) — keep consistent with recycler/block expectations
+    const size_t mask = (size_t)ALIGNMENT - 1;
 
-    if (size > (size_t)(-1) - mask)
-    {
+    if (size > SIZE_MAX - mask)
         return 0;
-    }
 
     return (size + mask) & ~mask;
 }
 
 void *page_begin(void *ptr, size_t page_size)
 {
-    char *tmp = (char *)ptr;
-    size_t mask = page_size - 1;
-
-    if ((page_size & mask) != 0)
-    {
+    if (ptr == NULL)
         return NULL;
-    }
 
-    return (void *)(tmp - ((size_t)tmp & mask));
-}
+    if (page_size == 0 || !is_power_of_two(page_size))
+        return NULL;
 
-__attribute__((constructor)) void init_tools() {
-    global_page_size = sysconf(_SC_PAGESIZE);
+    uintptr_t p = (uintptr_t)ptr;
+    return (void *)(p & ~(uintptr_t)(page_size - 1));
 }

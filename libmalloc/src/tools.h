@@ -4,10 +4,18 @@
 #include <stddef.h>
 
 /**
- * @brief Defines the system page size using sysconf.
+ * @brief Cached system page size (may be lazily initialized).
  */
 extern size_t global_page_size;
-#define PAGE_SIZE global_page_size
+
+/**
+ * @brief Returns a validated system page size (power-of-two), lazily
+ * initialized.
+ * @return page size in bytes, or 0 on failure.
+ */
+size_t tools_page_size(void);
+
+#define PAGE_SIZE tools_page_size()
 
 /**
  * @brief Defines the alignment size.
